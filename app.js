@@ -46,14 +46,35 @@ function makeEditor(id, mode) {
     return ed;
 }
 
-const ed_html = makeEditor('ed_html', 'ace/mode/html');
-const ed_css = makeEditor('ed_css', 'ace/mode/css');
-const ed_js = makeEditor('ed_js', 'ace/mode/javascript');
+// Initialize editors (guard if Ace is not loaded)
+let ed_html, ed_css, ed_js;
+(function initEditors() {
+    try {
+        if (typeof ace === 'undefined') throw new Error('Ace editor not found');
+        ed_html = makeEditor('ed_html', 'ace/mode/html');
+        ed_css = makeEditor('ed_css', 'ace/mode/css');
+        ed_js = makeEditor('ed_js', 'ace/mode/javascript');
+    } catch (e) {
+        log('Ace Editor not available or failed to initialize: ' + e, 'warn');
+        // Minimal fallbacks so rest of the app doesn't crash
+        const fallback = () => ({
+            getValue: () => '',
+            setValue: (v) => { },
+            resize: () => { },
+            session: { on: () => { } },
+            focus: () => { }
+        });
+        ed_html = ed_html || fallback();
+        ed_css = ed_css || fallback();
+        ed_js = ed_js || fallback();
+    }
+}());
 
+// Auto-run wiring only if sessions exist
 const autoRun = () => runWeb(false);
-if (ed_html && ed_html.session) ed_html.session.on('change', autoRun);
-if (ed_css && ed_css.session) ed_css.session.on('change', autoRun);
-if (ed_js && ed_js.session) ed_js.session.on('change', autoRun);
+try { if (ed_html && ed_html.session && typeof ed_html.session.on === 'function') ed_html.session.on('change', autoRun); } catch (e) { }
+try { if (ed_css && ed_css.session && typeof ed_css.session.on === 'function') ed_css.session.on('change', autoRun); } catch (e) { }
+try { if (ed_js && ed_js.session && typeof ed_js.session.on === 'function') ed_js.session.on('change', autoRun); } catch (e) { }
 
 const TAB_ORDER = ['html', 'css', 'js'];
 const wraps = Object.fromEntries($$('#webEditors .editor-wrap').map(w => [w.dataset.pane, w]));
@@ -111,16 +132,18 @@ ${withTests && tests ? `\n/* tests */\n${tests}` : ''}
 </html>`;
 }
 function runWeb(withTests = false) {
-    preview.srcdoc = buildWebSrcdoc(withTests);
-    log(withTests ? 'Run with tests.' : 'Web preview updated.');
+    if (!preview) {
+        log('Preview element (#preview) not found; cannot run preview.', 'error');
+        return;
+    }
+    try {
+        preview.srcdoc = buildWebSrcdoc(withTests);
+        log(withTests ? 'Run with tests.' : 'Web preview updated.');
+    } catch (e) {
+        log('Error while building preview: ' + e, 'error');
+    }
 }
-$('#runWeb')?.addEventListener('click', () => runWeb(false));
-if (document.getElementById('runTests')) document.getElementById('runTests').addEventListener('click', () => runWeb(true));
-$('#openPreview')?.addEventListener('click', () => {
-    const src = buildWebSrcdoc(false);
-    const w = window.open('about:blank');
-    w.document.open(); w.document.write(src); w.document.close();
-});
+
 function projectJSON() {
     return {
         version: 1,
@@ -288,5 +311,30 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     } catch (e) {
         log('Skipping auto-restore: ' + e, 'warn');
+    }
+
+    // Attach UI event handlers now that DOM is stable
+    try {
+        const runBtn = document.getElementById('runWeb');
+        if (runBtn) runBtn.addEventListener('click', () => runWeb(false));
+        const runTestsBtn = document.getElementById('runTests');
+        if (runTestsBtn) runTestsBtn.addEventListener('click', () => runWeb(true));
+        const openBtn = document.getElementById('openPreview');
+        if (openBtn) openBtn.addEventListener('click', () => {
+            const src = buildWebSrcdoc(false);
+            const w = window.open('', '_blank');
+            if (!w) {
+                // Popup blocked — inform the user and gracefully exit
+                try { alert('Popup blocked. Please allow popups and click "Open preview" again.'); } catch (e) { log('Popup blocked', 'warn'); }
+                return;
+            }
+            try {
+                w.document.open(); w.document.write(src); w.document.close();
+            } catch (e) {
+                log('Unable to open preview window: ' + e, 'error');
+            }
+        });
+    } catch (e) {
+        log('Error attaching run/open handlers: ' + e, 'error');
     }
 });
