@@ -39,8 +39,6 @@
 
     <main>
 
-        <!-- Left panel removed by user request -->
-
         <section class="stack" id="web-only">
             <div id="webEditors" class="stack card panel">
                 <div class="row">
@@ -59,7 +57,6 @@
                         data-pane="js">JavaScript</button>
                 </div>
 
-                <!-- Link each editor to a clear panel name -->
                 <div class="editor-wrap" data-pane="html">
                     <div id="ed_html" class="editor"></div>
                 </div>
@@ -70,17 +67,14 @@
                     <div id="ed_js" class="editor"></div>
                 </div>
 
-                <!-- preview moved to right column -->
             </div>
         </section>
 
-        <!-- Right: Preview, Output and log -->
         <aside class="card panel stack">
             <h2>Preview</h2>
             <div class="editor-wrap">
                 <iframe id="preview" class="preview" sandbox="allow-scripts allow-same-origin allow-modals"></iframe>
             </div>
-            <!-- Output removed per request; preview only -->
             <h3>Notes</h3>
             <ul class="muted" style="margin:0 0 8px 0; padding-inline-start:18px">
                 <li>Everything runs inside the browser in a sandbox.</li>
@@ -92,7 +86,6 @@
 
     <div class="footer">© 2025 Code Editor — In-browser Code Editor — All rights reserved</div>
 
-    <!-- External libraries: Ace only -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.43.2/ace.js"
         integrity="sha512-ZIa+FlPaGDSM+lTl9JaxnQvcfma7ETsOHd9Thbhp5u4RX1uYiDNW7XvUrXv4dJSPetXbiTzWilHEkSg4YpmltQ=="
         crossorigin="anonymous" referrerpolicy="no-referrer"
