@@ -4,7 +4,6 @@
 [![Version](https://img.shields.io/badge/Version-1.0.0-blue)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
 
-
 A polished, lightweight in-browser code editor that mirrors a VS Code-like workflow. Built with plain HTML, CSS, and vanilla JavaScript and powered by Ace Editor for editing. Ideal for teaching, quick demos, exercises, and prototyping without any server-side dependencies.
 
 ---
@@ -90,7 +89,6 @@ project-root/
 - `runWeb(withTests)` — set the `srcdoc` on the preview iframe and optionally append tests.
 - `saveProject()` / `loadProject()` — export/import project as JSON and persist to `localStorage`.
 - `resizeEditors()` — reflow editors on window resize or theme change.
-
 
 Edge cases to consider:
 
