@@ -1,7 +1,6 @@
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
-const out = $('#output');
-const preview = $('#preview');
+let out, preview;
 const STORAGE_KEY = 'academy-codelab-web';
 const escapeHtml = s =>
     String(s).replace(/[&<>"]/g, c => ({
@@ -32,7 +31,8 @@ if (document.getElementById('clearOut')) document.getElementById('clearOut').add
 function makeEditor(id, mode) {
     const ed = ace.edit(id, {
         theme: 'ace/theme/dracula',
-        mode, tabSize: 2, useSoftTabs: true, showPrintMargin: false, wrap: true
+        mode, tabSize: 2, useSoftTabs: true, showPrintMargin: false, wrap: true,
+        fontSize: '16px'
     });
     ed.session.setUseWrapMode(true);
     ed.commands.addCommand({
@@ -77,38 +77,50 @@ try { if (ed_css && ed_css.session && typeof ed_css.session.on === 'function') e
 try { if (ed_js && ed_js.session && typeof ed_js.session.on === 'function') ed_js.session.on('change', autoRun); } catch (e) { }
 
 const TAB_ORDER = ['html', 'css', 'js'];
-const wraps = Object.fromEntries($$('#webEditors .editor-wrap').map(w => [w.dataset.pane, w]));
+let wraps = {};
 const editors = { html: ed_html, css: ed_css, js: ed_js };
+
 function activePane() {
     const t = $('#webTabs .tab.active');
     return t ? t.dataset.pane : 'html';
 }
+
 function showPane(name) {
-    TAB_ORDER.forEach(k => { if (wraps[k]) wraps[k].hidden = (k !== name); });
+    // Hide all editor wraps and show only the selected one
+    TAB_ORDER.forEach(k => {
+        const wrap = wraps[k];
+        if (wrap) {
+            if (k === name) {
+                wrap.hidden = false;
+                wrap.style.display = 'flex'; // Ensure it's visible
+            } else {
+                wrap.hidden = true;
+                wrap.style.display = 'none'; // Explicitly hide it
+            }
+        }
+    });
+
+    // Update tab button states
     $$('#webTabs .tab').forEach(t => {
         const on = t.dataset.pane === name;
         t.classList.toggle('active', on);
         t.setAttribute('aria-selected', on);
         t.tabIndex = on ? 0 : -1;
     });
+
+    // Resize and focus the active editor
     requestAnimationFrame(() => {
         const ed = editors[name];
-        if (ed && ed.resize) { ed.resize(true); ed.focus(); }
+        if (ed && ed.resize) {
+            ed.resize(true);
+            ed.focus();
+        }
     });
+
+    log(`Switched to ${name} editor`);
 }
-$('#webTabs')?.addEventListener('click', (e) => {
-    const btn = e.target.closest('.tab'); if (!btn) return;
-    showPane(btn.dataset.pane);
-});
-$('#webTabs')?.addEventListener('keydown', (e) => {
-    const idx = TAB_ORDER.indexOf(activePane());
-    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-        const delta = e.key === 'ArrowLeft' ? -1 : 1;
-        showPane(TAB_ORDER[(idx + delta + TAB_ORDER.length) % TAB_ORDER.length]);
-        e.preventDefault();
-    }
-});
-showPane('html');
+
+// Tab event listeners will be attached in DOMContentLoaded
 function buildWebSrcdoc(withTests = false) {
     const html = ed_html.getValue();
     const css = ed_css.getValue();
@@ -301,6 +313,54 @@ document.getElementById('themeToggle')?.addEventListener('click', () => {
 });
 
 window.addEventListener('DOMContentLoaded', () => {
+    // Initialize DOM elements
+    out = $('#output');
+    preview = $('#preview');
+
+    // Initialize tab functionality now that DOM is ready
+    try {
+        // Initialize the wraps object with actual DOM elements
+        const editorWraps = $$('#webEditors .editor-wrap');
+        wraps = Object.fromEntries(editorWraps.map(w => [w.dataset.pane, w]));
+
+        log(`Found ${editorWraps.length} editor wraps: ${Object.keys(wraps).join(', ')}`);
+
+        // Attach tab event listeners
+        const tabContainer = $('#webTabs');
+        if (tabContainer) {
+            tabContainer.addEventListener('click', (e) => {
+                const btn = e.target.closest('.tab');
+                if (!btn) return;
+                const paneName = btn.dataset.pane;
+                log(`Tab clicked: ${paneName}`);
+                showPane(paneName);
+            });
+
+            tabContainer.addEventListener('keydown', (e) => {
+                const idx = TAB_ORDER.indexOf(activePane());
+                if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                    const delta = e.key === 'ArrowLeft' ? -1 : 1;
+                    showPane(TAB_ORDER[(idx + delta + TAB_ORDER.length) % TAB_ORDER.length]);
+                    e.preventDefault();
+                }
+            });
+
+            log('Tab event listeners attached successfully');
+        } else {
+            log('Tab container (#webTabs) not found', 'warn');
+        }
+
+        // Ensure HTML pane is shown by default
+        setTimeout(() => {
+            showPane('html');
+            log('Default HTML pane set');
+        }, 100);
+
+        log('Tab functionality initialized successfully');
+    } catch (e) {
+        log('Error initializing tab functionality: ' + e, 'error');
+    }
+
     try {
         const cached = localStorage.getItem(STORAGE_KEY);
         if (cached) {
@@ -316,24 +376,40 @@ window.addEventListener('DOMContentLoaded', () => {
     // Attach UI event handlers now that DOM is stable
     try {
         const runBtn = document.getElementById('runWeb');
-        if (runBtn) runBtn.addEventListener('click', () => runWeb(false));
+        if (runBtn) {
+            runBtn.addEventListener('click', () => {
+                log('Run button clicked');
+                runWeb(false);
+            });
+            log('Run button event listener attached');
+        } else {
+            log('Run button not found', 'warn');
+        }
+
         const runTestsBtn = document.getElementById('runTests');
         if (runTestsBtn) runTestsBtn.addEventListener('click', () => runWeb(true));
+
         const openBtn = document.getElementById('openPreview');
-        if (openBtn) openBtn.addEventListener('click', () => {
-            const src = buildWebSrcdoc(false);
-            const w = window.open('', '_blank');
-            if (!w) {
-                // Popup blocked — inform the user and gracefully exit
-                try { alert('Popup blocked. Please allow popups and click "Open preview" again.'); } catch (e) { log('Popup blocked', 'warn'); }
-                return;
-            }
-            try {
-                w.document.open(); w.document.write(src); w.document.close();
-            } catch (e) {
-                log('Unable to open preview window: ' + e, 'error');
-            }
-        });
+        if (openBtn) {
+            openBtn.addEventListener('click', () => {
+                log('Open Preview button clicked');
+                const src = buildWebSrcdoc(false);
+                const w = window.open('', '_blank');
+                if (!w) {
+                    // Popup blocked — inform the user and gracefully exit
+                    try { alert('Popup blocked. Please allow popups and click "Open preview" again.'); } catch (e) { log('Popup blocked', 'warn'); }
+                    return;
+                }
+                try {
+                    w.document.open(); w.document.write(src); w.document.close();
+                } catch (e) {
+                    log('Unable to open preview window: ' + e, 'error');
+                }
+            });
+            log('Open Preview button event listener attached');
+        } else {
+            log('Open Preview button not found', 'warn');
+        }
     } catch (e) {
         log('Error attaching run/open handlers: ' + e, 'error');
     }
